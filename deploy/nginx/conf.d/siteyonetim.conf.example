@@ -1,0 +1,78 @@
+# ============================================================
+#  Nginx server blokları — conf.d/
+#  İlk kurulumda (henüz sertifika yok) bu dosyayı:
+#   1) HTTP-only haliyle (certbot --nginx olmadan webroot için) yükle
+#   2) Sertifika alındıktan sonra aşağıdaki tam haliyle değiştir
+#  -> deploy/scripts/obtain-ssl.sh bunu otomatikleştirir.
+# ============================================================
+
+# HTTP → HTTPS yönlendirme + Let's Encrypt challenge yolu
+server {
+    listen 80;
+    server_name _;   # DOMAIN ile değiştir
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# HTTPS — ana uygulama
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name _;   # DOMAIN ile değiştir
+
+    # Let's Encrypt sertifikaları (Certbot container'ından mount edilir)
+    ssl_certificate     /etc/letsencrypt/live/SITEDOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/SITEDOMAIN/privkey.pem;
+
+    # Modern TLS
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    # ---- Güvenlik header'ları (FAZ 6) ----
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+
+    # ---- API proxy (rate limited) ----
+    location / {
+        limit_req zone=api_limit burst=20 nodelay;
+
+        proxy_pass         http://api_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Connection        "";
+        proxy_read_timeout 90s;
+        proxy_send_timeout 90s;
+    }
+
+    # ---- Sağlık kontrolü (rate limit'siz) ----
+    location = /health {
+        access_log off;
+        proxy_pass http://api_upstream/health;
+    }
+
+    # ---- MinIO genel erişilebilir nesneler (makbuz PDF/görsel) ----
+    location /storage/ {
+        proxy_pass         http://minio_upstream/siteyonetim-docs/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+}

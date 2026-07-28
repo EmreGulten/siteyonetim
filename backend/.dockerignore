@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/TestResults/
+**/appsettings.Development.json
+**/*.user
+**/*.suo
+.git/
+.gitignore
+*.md
+README.md
+**/secrets/
+secrets/

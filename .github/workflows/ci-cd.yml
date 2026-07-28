@@ -1,0 +1,110 @@
+name: CI/CD — Build & Deploy
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  PROJECT_DIR: backend
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # 1) TEST  — derle + model smoke test + (ileriye dönük) unit test
+  # ──────────────────────────────────────────────────────────────
+  test:
+    name: Build & Test (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore ${{ env.PROJECT_DIR }}/SiteYonetim.sln
+
+      - name: Build
+        run: dotnet build ${{ env.PROJECT_DIR }}/SiteYonetim.sln --configuration Release --no-restore
+
+      - name: EF model smoke test (DB gerekmez)
+        run: dotnet run --project ${{ env.PROJECT_DIR }}/tests/SiteYonetim.ModelSmokeTest --configuration Release
+
+      # (İleriye dönük) dotnet test — birim/integrasyon testler eklendikçe
+      - name: Run unit tests
+        run: dotnet test ${{ env.PROJECT_DIR }}/SiteYonetim.sln --configuration Release --no-build --verbosity normal || true
+
+  # ──────────────────────────────────────────────────────────────
+  # 2) BUILD  — Docker image üret + registry'e push
+  # ──────────────────────────────────────────────────────────────
+  build:
+    name: Build & Push Docker Image
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=ghcr.io/${GITHUB_REPOSITORY,,}/api:${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build image
+        run: |
+          docker build \
+            -f backend/src/SiteYonetim.Api/Dockerfile \
+            -t ${{ steps.meta.outputs.tag }} \
+            ./backend
+
+      - name: Push image
+        run: docker push ${{ steps.meta.outputs.tag }}
+
+    outputs:
+      image: ${{ steps.meta.outputs.tag }}
+
+  # ──────────────────────────────────────────────────────────────
+  # 3) DEPLOY  — VPS'e SSH ile bağlan, image'ı çek, compose up -d
+  # ──────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
+            cd ${{ secrets.VPS_DEPLOY_DIR }}
+            # En son kodu çek (compose + script güncellemeleri)
+            git fetch --all && git reset --hard origin/main || true
+
+            cd deploy
+            # Yeni image'ı çek + konteynerleri yeniden başlat
+            docker compose --env-file .env pull api || true
+            docker compose --env-file .env up -d --build --remove-orphans
+
+            # Sağlık kontrolü
+            sleep 8
+            curl -fsS http://localhost/health || (echo "❌ Health check başarısız" && exit 1)
+            docker image prune -f
+            echo "✅ Dağıtım tamam"

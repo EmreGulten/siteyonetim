@@ -1,0 +1,14 @@
+# ============================================================
+#  DEV / HTTP-first override — nginx+SSL kullanmadan API'yi
+#  doğrudan host portunda yayınlar. SSL/domain hazır olunca
+#  bu dosya kullanılmaz (nginx devreye girer).
+#  Kullanım:
+#    docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db minio minio-init api
+# ============================================================
+services:
+  api:
+    ports:
+      - "8080:8080"   # http://VPS_IP:8080
+    environment:
+      # MinIO URL'leri göreceli (nginx proxy olmadan) — mobil daha sonra
+      Minio__PublicBaseUrl: ""

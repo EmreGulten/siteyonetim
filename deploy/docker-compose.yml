@@ -1,0 +1,181 @@
+# ============================================================
+#  Site & Apartman Yönetim Sistemi — docker-compose (FAZ 1)
+#  4 çekirdek konteyner + Nginx (reverse proxy) + Certbot
+# ============================================================
+name: siteyonetim
+
+networks:
+  siteyonetim-net:
+    driver: bridge
+
+volumes:
+  postgres-data:     # PostgreSQL kalıcı veri
+  minio-data:        # MinIO nesne depolama (makbuz/fatura görselleri)
+  pgadmin-data:      # pgAdmin ayarları
+  nginx-certs:       # Let's Encrypt sertifikaları
+  nginx-html:        # certbot webroot (HTTP-01 challenge)
+  nginx-conf:
+
+services:
+  # ─────────────────────────────────────────────────────────
+  # 1) PostgreSQL  — dış IP'ye AÇIK DEĞİL (port yok)
+  # ─────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: siteyonetim-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - siteyonetim-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # ⚠️  ports: YOK — sadece internal network'ten erişilebilir (FAZ 6 güvenlik)
+
+  # ─────────────────────────────────────────────────────────
+  # 2) MinIO  — S3 uyumlu nesne depolama (internal)
+  # ─────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: siteyonetim-minio
+    restart: unless-stopped
+    command: server /data --console-address ":${MINIO_CONSOLE_PORT}"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    networks:
+      - siteyonetim-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${MINIO_API_PORT}/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    # Port dışa açılmaz; erişim Nginx üzerinden (FAZ 3 storage proxy) veya VPN.
+
+  # MinIO başlangıç bucket'ını otomatik oluştur
+  minio-init:
+    image: minio/mc:latest
+    container_name: siteyonetim-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - siteyonetim-net
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:${MINIO_API_PORT} ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      mc mb -p local/${MINIO_BUCKET} || true;
+      mc anonymous set download local/${MINIO_BUCKET} || true;
+      exit 0;
+      "
+
+  # ─────────────────────────────────────────────────────────
+  # 3) WebAPI (.NET Core 8)
+  # ─────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ../backend
+      dockerfile: src/SiteYonetim.Api/Dockerfile
+    image: siteyonetim/api:latest
+    container_name: siteyonetim-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ASPNETCORE_URLS: ${ASPNETCORE_URLS}
+      ConnectionStrings__DefaultConnection: ${ConnectionStrings__DefaultConnection}
+      Jwt__Issuer: ${Jwt__Issuer}
+      Jwt__Audience: ${Jwt__Audience}
+      Jwt__Key: ${Jwt__Key}
+      Jwt__AccessTokenMinutes: ${Jwt__AccessTokenMinutes}
+      Jwt__RefreshTokenDays: ${Jwt__RefreshTokenDays}
+      Minio__Endpoint: minio:${MINIO_API_PORT}
+      Minio__AccessKey: ${MINIO_ROOT_USER}
+      Minio__SecretKey: ${MINIO_ROOT_PASSWORD}
+      Minio__Bucket: ${MINIO_BUCKET}
+      Minio__PublicBaseUrl: ${MINIO_PUBLIC_BASE_URL}
+      Minio__UseSsl: "false"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+    volumes:
+      # IAP doğrulama için servis hesabı anahtarı (Faz 5)
+      - ../secrets:/app/secrets:ro
+    networks:
+      - siteyonetim-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Port dışa açılmaz; Nginx arkasında çalışır.
+
+  # ─────────────────────────────────────────────────────────
+  # 4) pgAdmin (opsiyonel, internal)
+  # ─────────────────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: siteyonetim-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - siteyonetim-net
+    depends_on:
+      db:
+        condition: service_healthy
+    # Üretimde SSH tüneli/VPN arkasında kullan; port yayınlama.
+
+  # ─────────────────────────────────────────────────────────
+  # 5) Nginx (Reverse Proxy) — TEK dışa açık nokta :80/:443
+  # ─────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: siteyonetim-nginx
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx-certs:/etc/letsencrypt
+      - nginx-html:/var/www/certbot
+      - nginx-conf:/etc/nginx/conf.d
+    networks:
+      - siteyonetim-net
+
+  # ─────────────────────────────────────────────────────────
+  # 6) Certbot — Let's Encrypt sertifika + otomatik yenileme
+  # ─────────────────────────────────────────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    container_name: siteyonetim-certbot
+    restart: unless-stopped
+    volumes:
+      - nginx-certs:/etc/letsencrypt
+      - nginx-html:/var/www/certbot
+    # Günde 2x yenileme dener; sertifikayı Nginx ile paylaşır.
+    entrypoint: >
+      /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h; done"

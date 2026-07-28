@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Site Yönetimi",
+    "slug": "siteyonetim",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "siteyonetim",
+    "userInterfaceStyle": "automatic",
+    "splash": { "image": "./assets/splash.png", "resizeMode": "contain", "backgroundColor": "#1e6f5c" },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dairom.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "GADApplicationIdentifier": "ca-app-pub-3940256099942544~1458002511",
+        "SKAdNetworkItems": [
+          { "SKAdNetworkIdentifier": "cstr6suwn9.skadnetwork" }
+        ],
+        "NSUserTrackingUsageDescription": "Bu tanımlayıcı kişiselleştirilmiş reklamlar göstermek için kullanılır."
+      }
+    },
+    "android": {
+      "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#1e6f5c" },
+      "package": "com.dairom.app",
+      "versionCode": 1
+    },
+    "plugins": [],
+    "extra": {
+      "apiBaseUrl": "https://api.sitendeavoir.com"
+    }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-3940256099942544~3347511713",
+    "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
+  }
+}

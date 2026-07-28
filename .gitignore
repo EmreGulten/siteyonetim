@@ -1,0 +1,37 @@
+# Sırlar — ASLA commit etme!
+.env
+*.env
+!**/.env.example
+secrets/
+**/secrets/
+*.pem
+*.key
+google-play-sa.json
+**/appsettings.json
+**/appsettings.Development.json
+**/appsettings.Production.json
+.claude/          # Claude Code yerel ayarları (settings.local.json sır içerebilir)
+
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+TestResults/
+
+# Node / React Native
+**/node_modules/
+.expo/
+dist/
+.web-build/
+*.log
+
+# IDE
+.vs/
+.vscode/
+.idea/
+.DS_Store
+**/.DS_Store
+
+# Docker
+docker-data/
