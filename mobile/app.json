@@ -17,7 +17,8 @@
         "SKAdNetworkItems": [
           { "SKAdNetworkIdentifier": "cstr6suwn9.skadnetwork" }
         ],
-        "NSUserTrackingUsageDescription": "Bu tanımlayıcı kişiselleştirilmiş reklamlar göstermek için kullanılır."
+        "NSUserTrackingUsageDescription": "Bu tanımlayıcı kişiselleştirilmiş reklamlar göstermek için kullanılır.",
+        "NSCameraUsageDescription": "Fatura ve fiş fotoğraflarını çekmek için kamera kullanılır."
       }
     },
     "android": {

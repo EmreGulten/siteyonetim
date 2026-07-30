@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SiteYonetim.Application.DTOs.Financial;
 using SiteYonetim.Application.Services;
 using SiteYonetim.Domain.Enums;
@@ -8,6 +9,7 @@ namespace SiteYonetim.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[EnableRateLimiting("per-ip")]
 [Route("api/finance")]
 public class FinanceController : ControllerBase
 {

@@ -13,11 +13,13 @@ public class ReportService
 {
     private readonly IAppDbContext _db;
     private readonly IIhtarnamePdfRenderer _ihtarnamePdf;
+    private readonly IBalancePdfRenderer _balancePdf;
 
-    public ReportService(IAppDbContext db, IIhtarnamePdfRenderer ihtarnamePdf)
+    public ReportService(IAppDbContext db, IIhtarnamePdfRenderer ihtarnamePdf, IBalancePdfRenderer balancePdf)
     {
         _db = db;
         _ihtarnamePdf = ihtarnamePdf;
+        _balancePdf = balancePdf;
     }
 
     /// <summary>Borçlu daireler listesi (kalan borç &gt; 0), gecikme ayı ile birlikte.</summary>
@@ -285,6 +287,67 @@ public class ReportService
     {
         var data = await GetIhtarnameDataAsync(apartmentId, year, ct);
         return _ihtarnamePdf.Render(data);
+    }
+
+    /// <summary>Yıllık mali bilanço verisi: aylık gelir/gider/net (Premium).</summary>
+    public async Task<AnnualBalanceData> GetAnnualBalanceDataAsync(int year, CancellationToken ct = default)
+    {
+        var txs = await _db.Transactions
+            .Where(t => t.Date.Year == year)
+            .Select(t => new { t.Type, t.Amount, t.Date.Month })
+            .AsNoTracking().ToListAsync(ct);
+
+        var site = await _db.Sites.AsNoTracking().FirstOrDefaultAsync(ct);
+
+        var rows = Enumerable.Range(1, 12).Select(m => new AnnualBalanceRow
+        {
+            Month = m,
+            Income = txs.Where(t => t.Type == TransactionType.Income && t.Month == m).Sum(t => t.Amount),
+            Expense = txs.Where(t => t.Type == TransactionType.Expense && t.Month == m).Sum(t => t.Amount),
+        }).ToList();
+
+        return new AnnualBalanceData
+        {
+            SiteName = site?.Name ?? "Site Yönetimi",
+            Year = year,
+            Rows = rows,
+            TotalIncome = rows.Sum(r => r.Income),
+            TotalExpense = rows.Sum(r => r.Expense),
+            NetBalance = rows.Sum(r => r.Net),
+            IssuedAt = DateTime.UtcNow,
+        };
+    }
+
+    /// <summary>Yıllık mali bilanço PDF'ini üretir. Premium özellik.</summary>
+    public async Task<byte[]> GetAnnualBalancePdfAsync(int year, CancellationToken ct = default)
+    {
+        var data = await GetAnnualBalanceDataAsync(year, ct);
+        return _balancePdf.Render(data);
+    }
+
+    /// <summary>Tüm site verisinin ZIP yedeğini üretir (JSON dosyaları). Premium özellik.</summary>
+    public async Task<byte[]> GetBackupZipAsync(CancellationToken ct = default)
+    {
+        var apartments = await _db.Apartments.AsNoTracking().ToListAsync(ct);
+        var dues = await _db.Dues.AsNoTracking().ToListAsync(ct);
+        var transactions = await _db.Transactions.AsNoTracking().ToListAsync(ct);
+        var residents = await _db.Residents.AsNoTracking().ToListAsync(ct);
+
+        using var ms = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, true))
+        {
+            void AddJson(string name, object data)
+            {
+                var entry = zip.CreateEntry(name);
+                using var ws = new StreamWriter(entry.Open());
+                ws.Write(System.Text.Json.JsonSerializer.Serialize(data));
+            }
+            AddJson("apartments.json", apartments);
+            AddJson("dues.json", dues);
+            AddJson("transactions.json", transactions);
+            AddJson("residents.json", residents);
+        }
+        return ms.ToArray();
     }
 
     /// <summary>TC Kimlik No'yu maskele: yalnızca son 4 hane görünür (örn. *******1234).</summary>

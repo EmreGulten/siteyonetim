@@ -91,6 +91,11 @@ export const reportsApi = {
   expensesCsv: (year: number) => csv('/api/reports/expenses/export', { year }),
   transactions: (year: number) => apiClient.get('/api/reports/transactions', { params: { year } }).then((r) => r.data),
   transactionsCsv: (year: number) => csv('/api/reports/transactions/export', { year }),
+  // Premium: yıllık bilanço PDF + veri yedeği ZIP
+  balancePdf: (year: number) =>
+    apiClient.get(`/api/reports/balance/${year}/pdf`, { responseType: 'arraybuffer' }).then((r) => r.data as ArrayBuffer),
+  backup: () =>
+    apiClient.get('/api/reports/backup', { responseType: 'arraybuffer' }).then((r) => r.data as ArrayBuffer),
 };
 
 /** CSV/Excel indir (arraybuffer) — yardımcı. */

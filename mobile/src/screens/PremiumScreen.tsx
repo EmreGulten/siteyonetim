@@ -30,6 +30,9 @@ export function PremiumScreen() {
         <Text style={styles.feature}>✓ WhatsApp / SMS borç hatırlatma</Text>
         <Text style={styles.feature}>✓ KMK ihtarname PDF üretimi</Text>
         <Text style={styles.feature}>✓ Detaylı KMK raporları</Text>
+        <Text style={styles.feature}>✓ Yıllık mali bilanço PDF</Text>
+        <Text style={styles.feature}>✓ Sınırsız fatura/belge arşivi</Text>
+        <Text style={styles.feature}>✓ Veri yedekleme (ZIP)</Text>
       </Card>
 
       {products.map((p: PremiumProduct) => (

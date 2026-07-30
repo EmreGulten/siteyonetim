@@ -33,6 +33,7 @@ public static class DependencyInjection
         // --- PDF üretimi ---
         services.AddSingleton<IReceiptPdfRenderer, QuestPdfReceiptRenderer>();
         services.AddSingleton<IIhtarnamePdfRenderer, QuestPdfIhtarnameRenderer>();
+        services.AddSingleton<IBalancePdfRenderer, QuestPdfBalanceRenderer>();
 
         // --- Store IAP doğrulama: RevenueCat (Apple/Google makbuz doğrulamasını RevenueCat yapar) ---
         services.AddHttpClient("RevenueCat", c => c.BaseAddress = new Uri("https://api.revenuecat.com/"));

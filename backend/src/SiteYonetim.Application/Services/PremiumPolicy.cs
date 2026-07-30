@@ -6,14 +6,14 @@ namespace SiteYonetim.Application.Services;
 /// <summary>
 /// Premium özellik geçidi (FAZ 5.1 özellik haritası).
 /// Ücretsiz plan sınırlarını uygular:
-///   - Tek site, en fazla 20 daire
+///   - Tek site, en fazla 10 daire (fatura/fiş ekleme Premium)
 ///   - Ek aidat yönetimi YOK
 ///   - Raporlarda reklam, makbuza watermark
 /// Premium: sınırsız site/daire, ek aidat, reklamsız, KMK raporu, özel makbuz.
 /// </summary>
 public class PremiumPolicy
 {
-    public const int FreeMaxApartments = 20;
+    public const int FreeMaxApartments = 10;
 
     private readonly IAppDbContext _db;
     private readonly ICurrentUserService _current;
@@ -49,5 +49,12 @@ public class PremiumPolicy
     {
         if (!await IsPremiumAsync(ct))
             throw new InvalidOperationException("Ek aidat yönetimi Premium abonelik gerektirir.");
+    }
+
+    /// <summary>Fatura/fiş ekleme (belge yükleme) yalnızca Premium. Free planda engellenir.</summary>
+    public async Task EnsureCanUploadDocumentAsync(CancellationToken ct = default)
+    {
+        if (!await IsPremiumAsync(ct))
+            throw new InvalidOperationException("Fatura/fiş ekleme Premium abonelik gerektirir.");
     }
 }

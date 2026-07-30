@@ -1,16 +1,26 @@
 import React, { useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Card, Chip, TextInput, Title, ActivityIndicator } from 'react-native-paper';
 import { financeApi } from '../api/endpoints';
 import { colors } from '../theme/colors';
 import { useRequireAuth } from '../hooks/useRequireAuth';
+import { useAuthStore } from '../store/authStore';
 import { BannerAdSlot } from './BannerAdSlot';
 
 const CATS = {
   Income: ['Kira', 'Aidat', 'Diğer'],
   Expense: ['Elektrik', 'Su', 'Doğalgaz', 'Personel', 'Bakım', 'Onarım', 'Diğer'],
 };
+
+/**
+ * expo-image-picker native module'ü lazy yükler. Expo Go'da module yoksa (SDK
+ * uyumsuzluğu) null döner → fatura özelliği "geliştirme derlemesi gerekir" uyarısı
+ * verir, ekran crash olmaz. Gerçek build'te (expo run:ios / EAS) module mevcut.
+ */
+function getImagePicker(): any {
+  try { return require('expo-image-picker'); } catch { return null; }
+}
 
 /** 6.png / 7.png — Gelir/Gider yönetimi: ekleme formu + liste. */
 export function TransactionsView({ type, title }: { type: 'Income' | 'Expense'; title: string }) {
@@ -20,14 +30,58 @@ export function TransactionsView({ type, title }: { type: 'Income' | 'Expense'; 
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [desc, setDesc] = useState('');
+  const [docImage, setDocImage] = useState<string | null>(null);
+
+  const pickImage = async () => {
+    const ImagePicker = getImagePicker();
+    if (!ImagePicker) { Alert.alert('Fatura ekleme', 'Bu özellik geliştirme derlemesinde çalışır (Expo Go değil).'); return; }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('İzin gerekli', 'Galeriye erişim izni gerekli.'); return; }
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+    if (!res.canceled) setDocImage(res.assets[0].uri);
+  };
+
+  const premium = useAuthStore((s) => s.user?.isPremium);
+
+  // Kamera ile fatura/fiş çekme — Premium'a özel.
+  const pickFromCamera = async () => {
+    if (!premium) { Alert.alert('Premium gerekli', 'Kamera ile fatura eklemek bir Premium özelliktir.'); return; }
+    const ImagePicker = getImagePicker();
+    if (!ImagePicker) { Alert.alert('Fatura ekleme', 'Bu özellik geliştirme derlemesinde çalışır (Expo Go değil).'); return; }
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('İzin gerekli', 'Kamera erişim izni gerekli.'); return; }
+    const res = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+    if (!res.canceled) setDocImage(res.assets[0].uri);
+  };
+
+  const showFaturaPicker = () => {
+    Alert.alert('Fatura / Fiş Ekle', undefined, [
+      { text: '🖼️ Galeriden Seç', onPress: pickImage },
+      { text: premium ? '📷 Kamera ile Çek' : '📷 Kamera (Premium)', onPress: pickFromCamera },
+      { text: 'İptal', style: 'cancel' },
+    ]);
+  };
 
   const list = useQuery({
     queryKey: ['transactions', type],
     queryFn: () => financeApi.transactions({ type, page: 1 }),
   });
   const add = useMutation({
-    mutationFn: () => financeApi.add({ type, category: category || 'Diğer', description: desc || undefined, amount: Number(amount), date: new Date().toISOString() }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['transactions'] }); setAmount(''); setDesc(''); setCategory(''); },
+    mutationFn: async () => {
+      if (docImage) {
+        const fd = new FormData();
+        fd.append('Type', type);
+        fd.append('Category', category || 'Diğer');
+        if (desc) fd.append('Description', desc);
+        fd.append('Amount', String(Number(amount)));
+        fd.append('Date', new Date().toISOString());
+        fd.append('document', { uri: docImage, name: 'fatura.jpg', type: 'image/jpeg' } as any);
+        return financeApi.addTransaction(fd);
+      }
+      return financeApi.add({ type, category: category || 'Diğer', description: desc || undefined, amount: Number(amount), date: new Date().toISOString() });
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['transactions'] }); setAmount(''); setDesc(''); setCategory(''); setDocImage(null); },
+    onError: (e: any) => Alert.alert('Eklenemedi', e?.response?.data?.detail || e?.response?.data?.error || 'Tekrar deneyin.'),
   });
 
   const fmt = (v: number) => `₺ ${(v ?? 0).toLocaleString('tr-TR')}`;
@@ -50,6 +104,17 @@ export function TransactionsView({ type, title }: { type: 'Income' | 'Expense'; 
           ))}
         </View>
         <TextInput label="Açıklama" value={desc} onChangeText={setDesc} mode="outlined" style={styles.input} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <Button
+            mode="outlined"
+            icon={premium ? 'camera' : 'crown-outline'}
+            onPress={() => premium ? showFaturaPicker() : Alert.alert('Premium gerekli', 'Fatura/fiş ekleme bir Premium özelliktir.')}
+            textColor={colors.primary}
+          >
+            {docImage ? 'Fatura Seçildi ✓' : premium ? 'Fatura Ekle (opsiyonel)' : 'Fatura (Premium)'}
+          </Button>
+          {docImage && <Button mode="text" onPress={() => setDocImage(null)} textColor={colors.danger} labelStyle={{ fontSize: 12 }}>Kaldır</Button>}
+        </View>
         <Button mode="contained" disabled={!amount || add.isPending} onPress={() => { if (!requireAuth()) return; add.mutate(); }} style={[styles.btn, { backgroundColor: accent }]}>
           {add.isPending ? <ActivityIndicator color="#fff" /> : 'Kaydet'}
         </Button>

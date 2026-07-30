@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SiteYonetim.Application.DTOs.Apartments;
 using SiteYonetim.Application.Services;
 
@@ -7,6 +8,7 @@ namespace SiteYonetim.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[EnableRateLimiting("per-ip")]
 [Route("api/apartments")]
 public class ApartmentsController : ControllerBase
 {

@@ -311,7 +311,25 @@ const REPORTS: ReportConfig[] = [
 /** 8.png — Raporlar: 8 rapor tipinden seçim → detay tablosu + Excel/Yazdır. */
 export function ReportsScreen() {
   const [selected, setSelected] = useState<ReportConfig | null>(null);
+  const [busy, setBusy] = useState(false);
   const premium = useAuthStore((s) => s.user?.isPremium);
+  const year = new Date().getFullYear();
+
+  const premiumDownload = async (kind: 'balance' | 'backup') => {
+    if (!premium) return Alert.alert('Premium gerekli', 'Bu özellik Premium abonelik gerektirir.');
+    setBusy(true);
+    try {
+      if (kind === 'balance') {
+        const bytes = await reportsApi.balancePdf(year);
+        await downloadAndShare(bytes, `bilanco-${year}.pdf`, 'application/pdf');
+      } else {
+        const bytes = await reportsApi.backup();
+        await downloadAndShare(bytes, `site-yedek-${year}.zip`, 'application/zip');
+      }
+    } catch (e: any) {
+      Alert.alert('İndirilemedi', e?.response?.status === 403 ? 'Premium özellik.' : 'Tekrar deneyin.');
+    } finally { setBusy(false); }
+  };
 
   if (selected) {
     return <ReportDetail config={selected} onBack={() => setSelected(null)} />;
@@ -321,6 +339,29 @@ export function ReportsScreen() {
       <Title style={styles.title}>Raporlar</Title>
       <Text style={styles.hint}>İndirmek istediğiniz raporu seçin</Text>
       {!premium && <BannerAdSlot placement="reports" />}
+
+      {/* Premium araçlar: yıllık bilanço PDF + veri yedeği */}
+      <View style={styles.toolsRow}>
+        <TouchableOpacity
+          style={[styles.toolCard, { borderColor: colors.accent }]}
+          disabled={busy}
+          onPress={() => premiumDownload('balance')}
+        >
+          <MaterialCommunityIcons name={premium ? 'file-chart-outline' : 'crown-outline'} size={22} color={colors.accent} />
+          <Text style={styles.toolTitle}>Yıllık Bilanço</Text>
+          <Text style={styles.toolSub}>PDF · {year}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toolCard, { borderColor: colors.primary }]}
+          disabled={busy}
+          onPress={() => premiumDownload('backup')}
+        >
+          <MaterialCommunityIcons name={premium ? 'database-export-outline' : 'crown-outline'} size={22} color={colors.primary} />
+          <Text style={styles.toolTitle}>Veri Yedeği</Text>
+          <Text style={styles.toolSub}>ZIP</Text>
+        </TouchableOpacity>
+      </View>
+
       <FlatList
         data={REPORTS}
         keyExtractor={(r) => r.key}
@@ -474,6 +515,10 @@ const styles = StyleSheet.create({
   title: { color: colors.primary, marginBottom: 2 },
   hint: { color: colors.textMuted, fontSize: 13, marginBottom: 10 },
   gridRow: { gap: 10, marginBottom: 10 },
+  toolsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  toolCard: { flex: 1, borderRadius: 14, borderWidth: 1.5, backgroundColor: colors.card, padding: 14, alignItems: 'center' },
+  toolTitle: { fontSize: 13, fontWeight: '800', color: colors.text, marginTop: 6, textAlign: 'center' },
+  toolSub: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
   card: { flex: 1, borderRadius: 14, borderWidth: 1.5, backgroundColor: colors.card, padding: 12, alignItems: 'center' },
   iconWrap: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   cardTitle: { fontSize: 13, fontWeight: '800', color: colors.text, textAlign: 'center' },

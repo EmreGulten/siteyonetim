@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Site Yönetimi — Site & Apartman Yönetim Sistemi</title>
+  <meta name="description" content="Aidat tahsilatı, daire yönetimi, gelir-gider takibi ve raporlar — tek uygulamada. Basit, hızlı, güvenli.">
+  <link rel="icon" href="assets/img/logo.png" type="image/png">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="brand"><img src="assets/img/logo.png" alt="Site Yönetimi"> <span>Site Yönetimi</span></a>
+      <nav class="nav" id="nav">
+        <a href="features.html" data-i18n="nav.features">Özellikler</a>
+        <a href="premium.html" data-i18n="nav.premium">Premium</a>
+        <a href="support.html" data-i18n="nav.support">Destek</a>
+        <a href="#" class="nav-cta" data-i18n="nav.getapp">Uygulamayı İndir</a>
+      </nav>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <div class="lang-switch">
+          <button class="lang-btn" data-lang="tr">TR</button>
+          <button class="lang-btn" data-lang="en">EN</button>
+        </div>
+        <button class="menu-toggle" onclick="document.getElementById('nav').classList.toggle('open')">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container hero-inner">
+      <span class="hero-badge" data-i18n="hero.badge">Site & Apartman Yönetim Sistemi</span>
+      <h1 data-i18n="hero.title">Site ve apartman yönetiminizi cebinizden yapın</h1>
+      <p data-i18n="hero.subtitle">Aidat tahsilatı, daire yönetimi, gelir-gider takibi ve detaylı raporlar — hepsi tek bir uygulamada. Basit, hızlı, güvenli.</p>
+      <div class="hero-actions">
+        <a href="#" class="btn btn-primary" data-i18n="hero.ctaPrimary">App Store'dan İndir</a>
+        <a href="features.html" class="btn btn-outline" data-i18n="hero.ctaSecondary">Özellikleri Keşfet</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <div class="section-head">
+        <h2 data-i18n="home.featuresTitle">Yönetimi kolaylaştıran her şey</h2>
+        <p data-i18n="home.featuresSubtitle">Günlük site yönetiminin tüm sıkıntılı kısımlarını tek yerden, pratik bir şekilde çözün.</p>
+      </div>
+      <div class="grid grid-3">
+        <div class="card"><div class="icon icon-blue">📊</div><h3 data-i18n="home.f1.t">Akıllı Dashboard</h3><p data-i18n="home.f1.d">Net bakiye, tahsilat oranı...</p></div>
+        <div class="card"><div class="icon icon-purple">🏢</div><h3 data-i18n="home.f2.t">Blok & Daire Yönetimi</h3><p data-i18n="home.f2.d">Blok, daire ve sakinler...</p></div>
+        <div class="card"><div class="icon icon-green">💰</div><h3 data-i18n="home.f3.t">Aidat Tahsilatı</h3><p data-i18n="home.f3.d">Tek dokunuşla tahsilat...</p></div>
+        <div class="card"><div class="icon icon-orange">➖</div><h3 data-i18n="home.f4.t">Gelir & Gider</h3><p data-i18n="home.f4.d">Tüm finansal işlemler...</p></div>
+        <div class="card"><div class="icon icon-pink">📄</div><h3 data-i18n="home.f5.t">Detaylı Raporlar</h3><p data-i18n="home.f5.d">Borçlu daireler, CSV...</p></div>
+        <div class="card"><div class="icon icon-blue">⚖️</div><h3 data-i18n="home.f6.t">KMK İhtarname</h3><p data-i18n="home.f6.d">634 sayılı KMK'ya uygun...</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:#fff;">
+    <div class="container">
+      <div class="section-head">
+        <h2 data-i18n="home.premiumTitle">Daha fazlası için Premium</h2>
+        <p data-i18n="home.premiumSubtitle">Sınırsız daire, reklamsız deneyim ve gelişmiş raporlar için yükseltin.</p>
+      </div>
+      <div style="text-align:center;">
+        <a href="premium.html" class="btn btn-fill" style="display:inline-flex;" data-i18n="home.premiumCta">Premium'u Gör</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="hero" style="padding:56px 0; text-align:center;">
+    <div class="container">
+      <h2 style="font-size:28px; margin-bottom:10px;" data-i18n="cta.title">Bugün yönetimi kolaylaştırmaya başlayın</h2>
+      <p style="opacity:0.95; margin-bottom:24px;" data-i18n="cta.subtitle">Ücretsiz indirin, sitenizi dakikalar içinde kaydedin.</p>
+      <a href="#" class="btn btn-primary" data-i18n="cta.btn">App Store'dan İndir</a>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="footer-brand"><img src="assets/img/logo.png"> <span>Site Yönetimi</span></div>
+          <p style="color:#bdc3c7; font-size:14px;" data-i18n="footer.made">dairom.site üzerinde çalışır.</p>
+        </div>
+        <div>
+          <h4 data-i18n="footer.product">Ürün</h4>
+          <a href="features.html" data-i18n="nav.features">Özellikler</a>
+          <a href="premium.html" data-i18n="nav.premium">Premium</a>
+          <a href="support.html" data-i18n="nav.support">Destek</a>
+        </div>
+        <div>
+          <h4 data-i18n="footer.legal">Yasal</h4>
+          <a href="privacy.html" data-i18n="privacy.title">Gizlilik Politikası</a>
+          <a href="terms.html" data-i18n="terms.title">Kullanım Şartları</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span data-i18n="footer.rights">© 2026 Site Yönetimi. Tüm hakları saklıdır.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/translations.js"></script>
+  <script src="assets/js/i18n.js"></script>
+</body>
+</html>

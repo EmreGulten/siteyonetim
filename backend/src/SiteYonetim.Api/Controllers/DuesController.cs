@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using SiteYonetim.Application.Abstractions;
 using SiteYonetim.Application.DTOs.Common;
@@ -11,6 +12,7 @@ namespace SiteYonetim.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[EnableRateLimiting("per-ip")]
 [Route("api/dues")]
 public class DuesController : ControllerBase
 {

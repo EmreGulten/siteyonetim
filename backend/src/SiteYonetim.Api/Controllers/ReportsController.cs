@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using SiteYonetim.Application.DTOs.Reports;
 using SiteYonetim.Application.Services;
@@ -11,6 +12,7 @@ namespace SiteYonetim.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[EnableRateLimiting("per-ip")]
 [Route("api/reports")]
 public class ReportsController : ControllerBase
 {
@@ -72,6 +74,30 @@ public class ReportsController : ControllerBase
         if (year <= 0) year = DateTime.UtcNow.Year;
         var pdf = await _reports.GetIhtarnamePdfAsync(apartmentId, year, ct);
         return File(pdf, "application/pdf", $"ihtarname-{apartmentId}-{year}.pdf");
+    }
+
+    // ─── Yıllık bilanço PDF (Premium) ───────────────────────────────────
+    /// <summary>Yıllık mali bilanço PDF'i (gelir/gider/net, aylık döküm). Premium.</summary>
+    [HttpGet("balance/{year:int}/pdf")]
+    [Authorize(Policy = "SiteManager")]
+    public async Task<IActionResult> BalancePdf(int year, CancellationToken ct)
+    {
+        if (!await _policy.IsPremiumAsync(ct))
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "Yıllık bilanço PDF bir Premium özelliktir." });
+        var pdf = await _reports.GetAnnualBalancePdfAsync(year, ct);
+        return File(pdf, "application/pdf", $"bilanco-{year}.pdf");
+    }
+
+    // ─── Veri yedekleme ZIP (Premium) ────────────────────────────────────
+    /// <summary>Tüm site verisinin JSON ZIP yedeği. Premium.</summary>
+    [HttpGet("backup")]
+    [Authorize(Policy = "SiteManager")]
+    public async Task<IActionResult> Backup(CancellationToken ct)
+    {
+        if (!await _policy.IsPremiumAsync(ct))
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "Veri yedekleme bir Premium özelliktir." });
+        var zip = await _reports.GetBackupZipAsync(ct);
+        return File(zip, "application/zip", $"site-yedek-{DateTime.UtcNow:yyyyMMdd}.zip");
     }
 
     // ─── Aidat raporu ────────────────────────────────────────────────────

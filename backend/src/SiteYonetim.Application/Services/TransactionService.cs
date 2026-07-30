@@ -15,11 +15,13 @@ public class TransactionService
 {
     private readonly IAppDbContext _db;
     private readonly IFileStorage _storage;
+    private readonly PremiumPolicy _policy;
 
-    public TransactionService(IAppDbContext db, IFileStorage storage)
+    public TransactionService(IAppDbContext db, IFileStorage storage, PremiumPolicy policy)
     {
         _db = db;
         _storage = storage;
+        _policy = policy;
     }
 
     public async Task<PagedResult<TransactionDto>> ListAsync(TransactionType? type, int page, int pageSize, CancellationToken ct = default)
@@ -47,6 +49,8 @@ public class TransactionService
         string? url = null;
         if (documentStream is not null && !string.IsNullOrWhiteSpace(documentFileName))
         {
+            // Free plan: ayda 5 belge limiti; Premium sınırsız.
+            await _policy.EnsureCanUploadDocumentAsync(ct);
             var ext = Path.GetExtension(documentFileName);
             var contentType = ext.ToLowerInvariant() switch
             {
